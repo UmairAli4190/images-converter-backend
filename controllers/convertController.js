@@ -7,13 +7,22 @@ import { AppError } from "../utils/AppError.js";
 
 const MAX_DIMENSION = 20000;
 const SUPPORTED_FORMATS = ["jpg", "jpeg", "png", "webp", "tiff", "avif"];
-const ALLOWED_INPUT_TYPES = [
+const ALLOWED_INPUT_FORMATS = [
+  "jpeg",
+  "jpg",
+  "png",
+  "webp",
+  "gif",
+  "tiff",
+  "avif",
+];
+const ALLOWED_MIME_TYPES = [
   "image/jpeg",
   "image/png",
   "image/webp",
+  "image/gif",
   "image/tiff",
   "image/avif",
-  "image/gif",
 ];
 
 // --------------------
@@ -24,6 +33,7 @@ async function safeDelete(filePath) {
   try {
     await fs.unlink(filePath);
   } catch (err) {
+    // Only log if it's not a "file not found" error
     if (err.code !== "ENOENT") {
       console.error(`Delete error for ${filePath}:`, err.message);
     }
@@ -46,24 +56,18 @@ function getMimeType(format) {
 }
 
 // --------------------
-// Validate Input File
+// Validate File Type
 // --------------------
-function validateInputFile(file) {
-  if (!file) {
-    throw new AppError("No file provided", 400, "FILE_NOT_FOUND");
-  }
-
+function validateFileType(file) {
   const ext = path.extname(file.originalname).toLowerCase().slice(1);
   const mimeType = file.mimetype?.toLowerCase();
 
-  // Check if file type is supported
-  const validExtensions = [...SUPPORTED_FORMATS, "gif"];
   if (
-    !validExtensions.includes(ext) &&
-    !ALLOWED_INPUT_TYPES.includes(mimeType)
+    !ALLOWED_INPUT_FORMATS.includes(ext) &&
+    !ALLOWED_MIME_TYPES.includes(mimeType)
   ) {
     throw new AppError(
-      `Invalid file type. Supported: ${validExtensions.join(", ")}`,
+      `Invalid file type. Allowed formats: ${ALLOWED_INPUT_FORMATS.join(", ")}`,
       400,
       "INVALID_FILE_TYPE",
     );
@@ -94,34 +98,26 @@ function validateFormat(format) {
 // --------------------
 // Validate Image Metadata
 // --------------------
-async function validateImageMetadata(filePath, filename) {
+async function validateImageMetadata(filePath) {
   try {
     const metadata = await sharp(filePath).metadata();
 
     if (!metadata.width || !metadata.height) {
-      throw new AppError(
-        `Invalid or corrupted image: ${filename}`,
-        400,
-        "INVALID_IMAGE",
-      );
+      throw new AppError("Invalid image file", 400, "INVALID_IMAGE");
     }
 
     if (metadata.width > MAX_DIMENSION || metadata.height > MAX_DIMENSION) {
       throw new AppError(
-        `Image dimensions exceed maximum (${MAX_DIMENSION}px): ${filename}`,
+        `Input image dimensions exceed maximum (${MAX_DIMENSION}px)`,
         400,
-        "IMAGE_TOO_LARGE",
+        "INPUT_DIMENSION_TOO_LARGE",
       );
     }
 
     return metadata;
   } catch (err) {
     if (err instanceof AppError) throw err;
-    throw new AppError(
-      `Failed to read image metadata: ${filename}`,
-      400,
-      "INVALID_IMAGE",
-    );
+    throw new AppError("Failed to read image metadata", 400, "INVALID_IMAGE");
   }
 }
 
@@ -174,34 +170,30 @@ function createConversionPipeline(inputPath, format) {
   return pipeline;
 }
 
-// ======================================================
-// SINGLE FILE CONVERSION CONTROLLER
-// ======================================================
-export const singleConvertController = async (req, res) => {
+// --------------------
+// Single File Convert
+// --------------------
+async function handleSingleFile(file, format, res) {
   let cleanupDone = false;
-  const inputPath = req.file?.path;
 
   const cleanup = async () => {
-    if (!cleanupDone && inputPath) {
+    if (!cleanupDone) {
       cleanupDone = true;
-      await safeDelete(inputPath);
+      await safeDelete(file.path);
     }
   };
 
   try {
-    // Validate input
-    validateInputFile(req.file);
-    const format = validateFormat(req.body.format);
+    validateFileType(file);
+    validateFormat(format);
 
-    // Validate image
-    await validateImageMetadata(inputPath, req.file.originalname);
+    await validateImageMetadata(file.path);
 
-    // Prepare output
-    const originalName = path.parse(req.file.originalname).name;
+    const originalName = path.parse(file.originalname).name;
     const outputFilename = `${originalName}.${format}`;
     const mimeType = getMimeType(format);
 
-    // Set response headers
+    // Set headers before streaming
     res.setHeader("Content-Type", mimeType);
     res.setHeader(
       "Content-Disposition",
@@ -209,10 +201,8 @@ export const singleConvertController = async (req, res) => {
     );
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
 
-    // Create conversion pipeline
-    const pipeline = createConversionPipeline(inputPath, format);
+    const pipeline = createConversionPipeline(file.path, format);
 
-    // Handle pipeline errors
     pipeline.on("error", async (err) => {
       console.error("Sharp pipeline error:", err.message);
       await cleanup();
@@ -234,19 +224,18 @@ export const singleConvertController = async (req, res) => {
       await cleanup();
     });
 
-    // Stream to response
     pipeline.pipe(res);
   } catch (err) {
     await cleanup();
     throw err;
   }
-};
+}
 
-// ======================================================
-// BULK CONVERSION CONTROLLER
-// ======================================================
-export const bulkConvertController = async (req, res) => {
-  const filesToCleanup = new Set(req.files?.map((f) => f.path) || []);
+// --------------------
+// Multiple Files Convert
+// --------------------
+async function handleMultipleFiles(files, format, res) {
+  const filesToCleanup = new Set(files.map((f) => f.path));
 
   const cleanup = async () => {
     if (filesToCleanup.size > 0) {
@@ -258,24 +247,6 @@ export const bulkConvertController = async (req, res) => {
   };
 
   try {
-    // Validate request
-    if (!req.files || req.files.length === 0) {
-      throw new AppError("No image files provided", 400, "FILES_NOT_FOUND");
-    }
-
-    const format = validateFormat(req.body.format);
-
-    // Validate all input files before processing
-    for (const file of req.files) {
-      try {
-        validateInputFile(file);
-      } catch (err) {
-        await cleanup();
-        throw err;
-      }
-    }
-
-    // Set response headers
     res.setHeader("Content-Type", "application/zip");
     res.setHeader(
       "Content-Disposition",
@@ -283,8 +254,8 @@ export const bulkConvertController = async (req, res) => {
     );
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
 
-    // Create archive
     const archive = archiver("zip", { zlib: { level: 6 } });
+
     let archiveFinalized = false;
 
     archive.on("error", async (err) => {
@@ -307,50 +278,39 @@ export const bulkConvertController = async (req, res) => {
 
     archive.pipe(res);
 
-    // Process files
     let processedCount = 0;
     const errors = [];
 
-    for (const file of req.files) {
-      const inputPath = file.path;
-
+    for (const file of files) {
       try {
-        // Validate image metadata
-        await validateImageMetadata(inputPath, file.originalname);
+        validateFileType(file);
 
-        // Create conversion pipeline
-        const pipeline = createConversionPipeline(inputPath, format);
+        await validateImageMetadata(file.path);
 
-        // Create passthrough stream
-        const stream = new PassThrough();
+        const convertStream = createConversionPipeline(file.path, format);
 
-        pipeline.on("error", (err) => {
+        convertStream.on("error", (err) => {
           console.error(`Sharp error for ${file.originalname}:`, err.message);
-          errors.push({
-            file: file.originalname,
-            error: "Conversion failed",
-          });
         });
 
-        pipeline.pipe(stream);
+        const passthrough = new PassThrough();
 
-        // Cleanup after stream ends
-        stream.on("end", () => {
-          safeDelete(inputPath);
-          filesToCleanup.delete(inputPath);
+        convertStream.pipe(passthrough);
+
+        // Mark file for cleanup when stream ends
+        passthrough.on("end", () => {
+          safeDelete(file.path);
+          filesToCleanup.delete(file.path);
         });
 
-        stream.on("error", (err) => {
-          console.error(`Stream error for ${file.originalname}:`, err.message);
-          safeDelete(inputPath);
-          filesToCleanup.delete(inputPath);
+        passthrough.on("error", () => {
+          safeDelete(file.path);
+          filesToCleanup.delete(file.path);
         });
 
-        // Generate output filename
         const outputName = `${path.parse(file.originalname).name}.${format}`;
 
-        // Add to archive
-        archive.append(stream, { name: outputName });
+        archive.append(passthrough, { name: outputName });
         processedCount++;
       } catch (err) {
         errors.push({
@@ -358,12 +318,12 @@ export const bulkConvertController = async (req, res) => {
           error: err.message,
         });
         console.warn(`Skipped ${file.originalname}:`, err.message);
-        await safeDelete(inputPath);
-        filesToCleanup.delete(inputPath);
+        await safeDelete(file.path);
+        filesToCleanup.delete(file.path);
       }
     }
 
-    // Check if any files were processed
+    // If no files were successfully processed, throw error
     if (processedCount === 0) {
       archive.destroy();
       await cleanup();
@@ -375,14 +335,13 @@ export const bulkConvertController = async (req, res) => {
       );
     }
 
-    // Finalize archive
     archiveFinalized = true;
     await archive.finalize();
 
-    // Log any errors
+    // Log any errors that occurred
     if (errors.length > 0) {
       console.warn(
-        `Processed ${processedCount}/${req.files.length} files. Errors:`,
+        `Processed ${processedCount}/${files.length} files. Errors:`,
         errors,
       );
     }
@@ -390,44 +349,54 @@ export const bulkConvertController = async (req, res) => {
     await cleanup();
     throw err;
   }
-};
+}
 
 // ======================================================
-// ERROR HANDLING MIDDLEWARE WRAPPER (Optional)
-// Use this if your framework doesn't have global error handling
+// MAIN CONVERT CONTROLLER
+// Handles single and multiple images automatically
 // ======================================================
-export const wrapController = (controller) => {
-  return async (req, res, next) => {
-    try {
-      await controller(req, res);
-    } catch (err) {
-      // Cleanup uploaded files
-      if (req.file) {
-        await safeDelete(req.file.path);
-      }
-      if (req.files && req.files.length > 0) {
-        await Promise.allSettled(req.files.map((f) => safeDelete(f.path)));
-      }
+export const convertController = async (req, res) => {
+  try {
+    // Validate request - handle both single file and multiple files
+    const files = req.files || (req.file ? [req.file] : []);
 
-      // Handle error response
-      if (!res.headersSent) {
-        if (err instanceof AppError) {
-          res.status(err.statusCode).json({
-            error: err.message,
-            code: err.code,
-            ...(err.details && { details: err.details }),
-          });
-        } else {
-          console.error("Unexpected error:", err);
-          res.status(500).json({
-            error: "Internal server error",
-            code: "INTERNAL_ERROR",
-          });
-        }
-      } else {
-        // Response already started, just end it
-        res.end();
-      }
+    if (files.length === 0) {
+      throw new AppError("No image files provided", 400, "FILES_NOT_FOUND");
     }
-  };
+
+    const format = validateFormat(req.body.format);
+
+    // Route to appropriate handler
+    if (files.length === 1) {
+      await handleSingleFile(files[0], format, res);
+    } else {
+      await handleMultipleFiles(files, format, res);
+    }
+  } catch (err) {
+    // Clean up any uploaded files on error
+    const files = req.files || (req.file ? [req.file] : []);
+    if (files.length > 0) {
+      await Promise.allSettled(files.map((f) => safeDelete(f.path)));
+    }
+
+    // Handle error response
+    if (!res.headersSent) {
+      if (err instanceof AppError) {
+        res.status(err.statusCode).json({
+          error: err.message,
+          code: err.code,
+          ...(err.details && { details: err.details }),
+        });
+      } else {
+        console.error("Unexpected error:", err);
+        res.status(500).json({
+          error: "Internal server error",
+          code: "INTERNAL_ERROR",
+        });
+      }
+    } else {
+      // Response already started, just end it
+      res.end();
+    }
+  }
 };

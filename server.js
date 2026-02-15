@@ -5,8 +5,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { AppError } from "./utils/AppError.js";
 import { asyncWrapper } from "./utils/asyncWrapper.js";
-import { convertController } from "./controllers/convertControllers.js";
-import { resizeController } from "./controllers/resizeControllers.js";
+import { convertController } from "./controllers/convertController.js";
+import { resizeController } from "./controllers/resizeController.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
