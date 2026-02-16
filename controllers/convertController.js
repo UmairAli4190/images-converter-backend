@@ -29,14 +29,16 @@ const ALLOWED_MIME_TYPES = [
 // Safe Delete Helper
 // --------------------
 async function safeDelete(filePath) {
-  if (!filePath) return;
+  if (typeof filePath !== "string" || !filePath.trim()) {
+    return false;
+  }
   try {
     await fs.unlink(filePath);
+    return true;
   } catch (err) {
-    // Only log if it's not a "file not found" error
-    if (err.code !== "ENOENT") {
-      console.error(`Delete error for ${filePath}:`, err.message);
-    }
+    if (err?.code === "ENOENT") return true;
+    console.error(`Failed to delete ${filePath}:`, err.message);
+    return false;
   }
 }
 
@@ -178,8 +180,10 @@ async function handleSingleFile(file, format, res) {
 
   const cleanup = async () => {
     if (!cleanupDone) {
-      cleanupDone = true;
-      await safeDelete(file.path);
+      const isFileDeleted = await safeDelete(file.path);
+      if (isFileDeleted) {
+        cleanupDone = true;
+      }
     }
   };
 
