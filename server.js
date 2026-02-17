@@ -7,6 +7,7 @@ import { AppError } from "./utils/AppError.js";
 import { asyncWrapper } from "./utils/asyncWrapper.js";
 import { convertController } from "./controllers/convertController.js";
 import { resizeController } from "./controllers/resizeController.js";
+import { compressController } from "./controllers/compressController.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -124,7 +125,12 @@ app.post(
   multerWrapper(upload.array("images", 20)),
   asyncWrapper(resizeController),
 );
-
+// for image compression;
+app.post(
+  "/compress/bulk",
+  multerWrapper(upload.array("images", 20)),
+  asyncWrapper(compressController),
+);
 // --------------------
 // Health Check
 // --------------------
