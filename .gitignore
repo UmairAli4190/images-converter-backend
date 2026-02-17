@@ -26,5 +26,8 @@ Thumbs.db
 # VS Code
 .vscode/
 
+#webstorm ide ignore
+.idea/
+
 # Coverage
 coverage/
