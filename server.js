@@ -112,6 +112,10 @@ const upload = multer({
 // Main Conversion Endpoint
 // --------------------
 
+// serving html;
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
 // for bulk images
 app.post(
   "/convert/bulk",

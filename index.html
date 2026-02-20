@@ -1,0 +1,799 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image Converter & Resizer</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: #e5e7eb;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        line-height: 1.6;
+      }
+      .container {
+        background: rgba(2, 6, 23, 0.95);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(51, 65, 85, 0.5);
+        border-radius: 20px;
+        padding: 40px;
+        width: 100%;
+        max-width: 650px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      }
+      h1 {
+        text-align: center;
+        margin-bottom: 10px;
+        font-size: 28px;
+        color: #fff;
+      }
+      .subtitle {
+        text-align: center;
+        margin-bottom: 20px;
+        color: #94a3b8;
+        font-size: 15px;
+      }
+      .mode-switch {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+      }
+      .mode-switch button {
+        padding: 10px 20px;
+        margin: 0 5px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: 0.2s;
+        color: #fff;
+      }
+      .mode-switch button.active {
+        background: #3b82f6;
+      }
+      .mode-switch button:not(.active) {
+        background: #475569;
+      }
+      .upload-area {
+        position: relative;
+        margin-bottom: 20px;
+      }
+      input[type="file"] {
+        display: none;
+      }
+      .upload-label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 30px 20px;
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border: 2px dashed #475569;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: 0.3s;
+        min-height: 120px;
+        text-align: center;
+      }
+      .upload-label:hover {
+        border-color: #3b82f6;
+        background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+      }
+      .upload-label.has-file {
+        border-color: #10b981;
+        background: linear-gradient(135deg, #065f46 0%, #064e3b 100%);
+      }
+      .upload-icon {
+        font-size: 36px;
+        margin-bottom: 10px;
+        opacity: 0.8;
+      }
+      .upload-text {
+        font-size: 16px;
+        font-weight: 600;
+        color: #cbd5e1;
+        margin-bottom: 4px;
+      }
+      .upload-hint {
+        font-size: 13px;
+        color: #64748b;
+      }
+      .file-info {
+        display: none;
+        margin-top: 12px;
+        padding: 12px;
+        background: rgba(30, 41, 59, 0.5);
+        border-radius: 10px;
+        border: 1px solid rgba(51, 65, 85, 0.5);
+      }
+      .file-info.show {
+        display: block;
+      }
+      .file-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: #93c5fd;
+        word-break: break-all;
+        margin-bottom: 4px;
+      }
+      .file-size {
+        font-size: 13px;
+        color: #94a3b8;
+      }
+      .preview {
+        display: flex;
+        flex-wrap: wrap;
+        margin-top: 20px;
+        gap: 10px;
+      }
+      .preview img {
+        border-radius: 6px;
+        border: 1px solid rgba(51, 65, 85, 0.8);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+      }
+      .format-selector {
+        margin-top: 20px;
+      }
+      .format-label {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        color: #cbd5e1;
+        margin-bottom: 10px;
+      }
+      select {
+        width: 100%;
+        padding: 12px 16px;
+        background: #1e293b;
+        color: #e5e7eb;
+        border: 1px solid #334155;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 500;
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%2394a3b8' d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        padding-right: 40px;
+      }
+      .btn {
+        width: 100%;
+        padding: 14px;
+        font-size: 16px;
+        font-weight: 600;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        margin-top: 20px;
+        transition: 0.2s;
+      }
+      .btn-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+      }
+      .btn-primary:hover:not(:disabled) {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+      }
+      .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .btn-secondary {
+        background: transparent;
+        color: #94a3b8;
+        border: 1px solid #334155;
+        margin-top: 12px;
+        padding: 12px;
+        font-size: 14px;
+      }
+      .btn-secondary:hover:not(:disabled) {
+        background: rgba(30, 41, 59, 0.5);
+        color: #cbd5e1;
+        border-color: #475569;
+      }
+      .progress-container {
+        display: none;
+        margin-top: 16px;
+      }
+      .progress-container.show {
+        display: block;
+      }
+      .progress-bar-wrapper {
+        width: 100%;
+        height: 10px;
+        background: #1e293b;
+        border-radius: 5px;
+        overflow: hidden;
+      }
+      .progress-bar {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+        transition: width 0.3s ease;
+        border-radius: 5px;
+      }
+      .status {
+        margin-top: 12px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        text-align: center;
+        display: none;
+      }
+      .status.show {
+        display: block;
+      }
+      .status.info {
+        background: rgba(59, 130, 246, 0.15);
+        color: #93c5fd;
+        border: 1px solid rgba(59, 130, 246, 0.3);
+      }
+      .status.success {
+        background: rgba(16, 185, 129, 0.15);
+        color: #6ee7b7;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+      }
+      .status.error {
+        background: rgba(239, 68, 68, 0.15);
+        color: #fca5a5;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+      }
+      .image-dims {
+        display: flex;
+        flex-wrap: wrap;
+        flex-direction: column;
+        gap: 4px;
+        justify-content: center;
+        margin-top: 6px;
+      }
+      .image-dims input {
+        width: 100px;
+        padding: 3px 5px;
+        font-size: 12px;
+        border-radius: 5px;
+        border: 1px solid #334155;
+        text-align: center;
+        background: #1e293b;
+        color: #e5e7eb;
+      }
+
+      /* Compressor slider styles */
+      .compress-slider-wrapper {
+        margin-top: 20px;
+      }
+      .compress-slider-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .compress-slider-label span:first-child {
+        font-size: 14px;
+        font-weight: 600;
+        color: #cbd5e1;
+      }
+      .compress-slider-label .compress-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: #3b82f6;
+        min-width: 48px;
+        text-align: right;
+      }
+      input[type="range"].compress-slider {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 6px;
+        border-radius: 3px;
+        background: #1e293b;
+        outline: none;
+        cursor: pointer;
+        border: 1px solid #334155;
+      }
+      input[type="range"].compress-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);
+        transition: box-shadow 0.2s;
+      }
+      input[type="range"].compress-slider::-webkit-slider-thumb:hover {
+        box-shadow: 0 2px 14px rgba(59, 130, 246, 0.75);
+      }
+      input[type="range"].compress-slider::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        cursor: pointer;
+        border: none;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);
+      }
+      .compress-slider-hints {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 6px;
+        font-size: 12px;
+        color: #475569;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Image Converter & Resizer</h1>
+      <p class="subtitle">Convert images or resize them separately</p>
+
+      <div class="mode-switch">
+        <button id="convertTabBtn" class="active">Convert</button>
+        <button id="resizeTabBtn">Resize</button>
+        <button id="compressTabBtn">Compressor</button>
+      </div>
+
+      <!-- Convert Tab -->
+      <div id="convertTab">
+        <div class="upload-area">
+          <input type="file" id="convertInput" multiple accept="image/*" />
+          <label for="convertInput" class="upload-label" id="convertLabel">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">Choose images</div>
+            <div class="upload-hint">or drag and drop here</div>
+          </label>
+        </div>
+        <div class="file-info" id="convertFileInfo">
+          <div class="file-name" id="convertFileName"></div>
+          <div class="file-size" id="convertFileSize"></div>
+        </div>
+        <div class="preview bulk-preview" id="convertPreview"></div>
+        <div class="format-selector">
+          <label class="format-label" for="convertFormat">Output Format</label>
+          <select id="convertFormat">
+            <option value="jpg">JPG</option>
+            <option value="png">PNG</option>
+            <option value="webp">WebP</option>
+            <option value="avif">AVIF</option>
+            <option value="tiff">TIFF</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" id="convertBtn">
+          Convert & Download
+        </button>
+        <div class="progress-container" id="convertProgressContainer">
+          <div class="progress-bar-wrapper">
+            <div class="progress-bar" id="convertProgressBar"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resize Tab -->
+      <div id="resizeTab" style="display: none">
+        <div class="upload-area">
+          <input type="file" id="resizeInput" multiple accept="image/*" />
+          <label for="resizeInput" class="upload-label" id="resizeLabel">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">Choose images</div>
+            <div class="upload-hint">or drag and drop here</div>
+          </label>
+        </div>
+        <div class="file-info" id="resizeFileInfo">
+          <div class="file-name" id="resizeFileName"></div>
+          <div class="file-size" id="resizeFileSize"></div>
+        </div>
+        <div class="preview bulk-preview" id="resizePreview"></div>
+        <button class="btn btn-primary" id="resizeBtn">
+          Resize & Download
+        </button>
+        <div class="progress-container" id="resizeProgressContainer">
+          <div class="progress-bar-wrapper">
+            <div class="progress-bar" id="resizeProgressBar"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Compressor Tab -->
+      <div id="compressTab" style="display: none">
+        <div class="upload-area">
+          <input type="file" id="compressInput" multiple accept="image/*" />
+          <label for="compressInput" class="upload-label" id="compressLabel">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">Choose images</div>
+            <div class="upload-hint">or drag and drop here</div>
+          </label>
+        </div>
+        <div class="file-info" id="compressFileInfo">
+          <div class="file-name" id="compressFileName"></div>
+          <div class="file-size" id="compressFileSize"></div>
+        </div>
+        <div class="preview bulk-preview" id="compressPreview"></div>
+        <div class="compress-slider-wrapper">
+          <div class="compress-slider-label">
+            <span>Compression Quality</span>
+            <span class="compress-value" id="compressValueLabel">80%</span>
+          </div>
+          <input
+            type="range"
+            class="compress-slider"
+            id="compressSlider"
+            min="1"
+            max="100"
+            value="80"
+          />
+          <div class="compress-slider-hints">
+            <span>1% — Max compression</span>
+            <span>100% — Best quality</span>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="compressBtn">
+          Compress & Download
+        </button>
+        <div class="progress-container" id="compressProgressContainer">
+          <div class="progress-bar-wrapper">
+            <div class="progress-bar" id="compressProgressBar"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="status" id="status"></div>
+    </div>
+
+    <script>
+      const convertTabBtn = document.getElementById("convertTabBtn");
+      const resizeTabBtn = document.getElementById("resizeTabBtn");
+      const compressTabBtn = document.getElementById("compressTabBtn");
+      const convertTab = document.getElementById("convertTab");
+      const resizeTab = document.getElementById("resizeTab");
+      const compressTab = document.getElementById("compressTab");
+      const status = document.getElementById("status");
+
+      // Tab switching
+      convertTabBtn.addEventListener("click", () => {
+        convertTab.style.display = "block";
+        resizeTab.style.display = "none";
+        compressTab.style.display = "none";
+        convertTabBtn.classList.add("active");
+        resizeTabBtn.classList.remove("active");
+        compressTabBtn.classList.remove("active");
+        status.textContent = "";
+        status.className = "status";
+      });
+      resizeTabBtn.addEventListener("click", () => {
+        convertTab.style.display = "none";
+        resizeTab.style.display = "block";
+        compressTab.style.display = "none";
+        convertTabBtn.classList.remove("active");
+        resizeTabBtn.classList.add("active");
+        compressTabBtn.classList.remove("active");
+        status.textContent = "";
+        status.className = "status";
+      });
+      compressTabBtn.addEventListener("click", () => {
+        convertTab.style.display = "none";
+        resizeTab.style.display = "none";
+        compressTab.style.display = "block";
+        convertTabBtn.classList.remove("active");
+        resizeTabBtn.classList.remove("active");
+        compressTabBtn.classList.add("active");
+        status.textContent = "";
+        status.className = "status";
+      });
+
+      // --- Convert Tab ---
+      const convertInput = document.getElementById("convertInput");
+      const convertLabel = document.getElementById("convertLabel");
+      const convertFileName = document.getElementById("convertFileName");
+      const convertFileSize = document.getElementById("convertFileSize");
+      const convertFileInfo = document.getElementById("convertFileInfo");
+      const convertPreview = document.getElementById("convertPreview");
+      const convertFormat = document.getElementById("convertFormat");
+      const convertBtn = document.getElementById("convertBtn");
+      const convertProgressContainer = document.getElementById(
+        "convertProgressContainer",
+      );
+      const convertProgressBar = document.getElementById("convertProgressBar");
+
+      convertInput.addEventListener("change", () => {
+        const files = convertInput.files;
+        convertPreview.innerHTML = "";
+        if (files.length) {
+          convertLabel.classList.add("has-file");
+          convertFileName.textContent = files.length + " files selected";
+          let totalSize = 0;
+          Array.from(files).forEach((f) => (totalSize += f.size));
+          convertFileSize.textContent = (totalSize / 1024).toFixed(2) + " KB";
+          convertFileInfo.classList.add("show");
+          Array.from(files).forEach((file) => {
+            const img = document.createElement("img");
+            img.src = URL.createObjectURL(file);
+            img.width = 100;
+            convertPreview.appendChild(img);
+          });
+        }
+      });
+
+      convertBtn.addEventListener("click", async () => {
+        const files = convertInput.files;
+        if (!files.length) {
+          status.textContent = "Please select files";
+          status.className = "status show error";
+          return;
+        }
+        const format = convertFormat.value;
+        convertBtn.disabled = true;
+        convertProgressContainer.classList.add("show");
+        convertProgressBar.style.width = "0%";
+        status.textContent = "Uploading...";
+        status.className = "status show info";
+        try {
+          const formData = new FormData();
+          Array.from(files).forEach((f) => formData.append("images", f));
+          formData.append("format", format);
+          const res = await fetch(
+            "https://images-converter-backend.onrender.com/convert/bulk",
+            {
+              method: "POST",
+              body: formData,
+            },
+          );
+          if (!res.ok) throw new Error("Conversion failed");
+          const blob = await res.blob();
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "converted_images";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          convertProgressBar.style.width = "100%";
+          status.textContent = "✓ Conversion complete!";
+          status.className = "status show success";
+        } catch (e) {
+          status.textContent = e.message;
+          status.className = "status show error";
+        } finally {
+          convertBtn.disabled = false;
+          setTimeout(() => {
+            convertProgressContainer.classList.remove("show");
+            convertProgressBar.style.width = "0%";
+          }, 2000);
+        }
+      });
+
+      // --- Resize Tab ---
+      const resizeInput = document.getElementById("resizeInput");
+      const resizeLabel = document.getElementById("resizeLabel");
+      const resizeFileName = document.getElementById("resizeFileName");
+      const resizeFileSize = document.getElementById("resizeFileSize");
+      const resizeFileInfo = document.getElementById("resizeFileInfo");
+      const resizePreview = document.getElementById("resizePreview");
+      const resizeBtn = document.getElementById("resizeBtn");
+      const resizeProgressContainer = document.getElementById(
+        "resizeProgressContainer",
+      );
+      const resizeProgressBar = document.getElementById("resizeProgressBar");
+
+      resizeInput.addEventListener("change", () => {
+        const files = resizeInput.files;
+        resizePreview.innerHTML = "";
+        if (files.length) {
+          resizeLabel.classList.add("has-file");
+          resizeFileName.textContent = files.length + " files selected";
+          let totalSize = 0;
+          Array.from(files).forEach((f) => (totalSize += f.size));
+          resizeFileSize.textContent = (totalSize / 1024).toFixed(2) + " KB";
+          resizeFileInfo.classList.add("show");
+
+          Array.from(files).forEach((file, index) => {
+            const container = document.createElement("div");
+            container.style.display = "inline-block";
+            container.style.textAlign = "center";
+            container.style.margin = "10px";
+
+            const img = document.createElement("img");
+            img.src = URL.createObjectURL(file);
+            img.width = 100;
+            container.appendChild(img);
+
+            const dims = document.createElement("div");
+            dims.className = "image-dims";
+
+            const w = document.createElement("input");
+            w.type = "number";
+            w.placeholder = "W";
+            w.dataset.index = index;
+
+            const h = document.createElement("input");
+            h.type = "number";
+            h.placeholder = "H";
+            h.dataset.index = index;
+
+            // --- NEW FEATURE: Fill and preserve aspect ratio ---
+            img.onload = () => {
+              const naturalWidth = img.naturalWidth;
+              const naturalHeight = img.naturalHeight;
+              w.value = naturalWidth;
+              h.value = naturalHeight;
+
+              w.addEventListener("input", () => {
+                const aspect = naturalWidth / naturalHeight;
+                h.value = Math.round(w.value / aspect);
+              });
+              h.addEventListener("input", () => {
+                const aspect = naturalWidth / naturalHeight;
+                w.value = Math.round(h.value * aspect);
+              });
+            };
+
+            dims.appendChild(w);
+            dims.appendChild(h);
+            container.appendChild(dims);
+            resizePreview.appendChild(container);
+          });
+        }
+      });
+
+      resizeBtn.addEventListener("click", async () => {
+        const files = resizeInput.files;
+        if (!files.length) {
+          status.textContent = "Please select files";
+          status.className = "status show error";
+          return;
+        }
+        resizeBtn.disabled = true;
+        resizeProgressContainer.classList.add("show");
+        resizeProgressBar.style.width = "0%";
+        status.textContent = "Uploading...";
+        status.className = "status show info";
+        try {
+          const formData = new FormData();
+          const widthInputs = resizePreview.querySelectorAll(
+            "input[placeholder='W']",
+          );
+          const heightInputs = resizePreview.querySelectorAll(
+            "input[placeholder='H']",
+          );
+          Array.from(files).forEach((f) => formData.append("images", f));
+          Array.from(widthInputs).forEach((i) =>
+            formData.append("widths[]", i.value || null),
+          );
+          Array.from(heightInputs).forEach((i) =>
+            formData.append("heights[]", i.value || null),
+          );
+          const res = await fetch(
+            "https://images-converter-backend.onrender.com/resize/bulk",
+            {
+              method: "POST",
+              body: formData,
+            },
+          );
+          if (!res.ok) throw new Error("Resize failed");
+          const blob = await res.blob();
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "resized_images";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          resizeProgressBar.style.width = "100%";
+          status.textContent = "✓ Resize complete!";
+          status.className = "status show success";
+        } catch (e) {
+          status.textContent = e.message;
+          status.className = "status show error";
+        } finally {
+          resizeBtn.disabled = false;
+          setTimeout(() => {
+            resizeProgressContainer.classList.remove("show");
+            resizeProgressBar.style.width = "0%";
+          }, 2000);
+        }
+      });
+
+      // --- Compressor Tab ---
+      const compressInput = document.getElementById("compressInput");
+      const compressLabel = document.getElementById("compressLabel");
+      const compressFileName = document.getElementById("compressFileName");
+      const compressFileSize = document.getElementById("compressFileSize");
+      const compressFileInfo = document.getElementById("compressFileInfo");
+      const compressPreview = document.getElementById("compressPreview");
+      const compressSlider = document.getElementById("compressSlider");
+      const compressValueLabel = document.getElementById("compressValueLabel");
+      const compressBtn = document.getElementById("compressBtn");
+      const compressProgressContainer = document.getElementById(
+        "compressProgressContainer",
+      );
+      const compressProgressBar = document.getElementById(
+        "compressProgressBar",
+      );
+
+      compressSlider.addEventListener("input", () => {
+        compressValueLabel.textContent = compressSlider.value + "%";
+      });
+
+      compressInput.addEventListener("change", () => {
+        const files = compressInput.files;
+        compressPreview.innerHTML = "";
+        if (files.length) {
+          compressLabel.classList.add("has-file");
+          compressFileName.textContent = files.length + " files selected";
+          let totalSize = 0;
+          Array.from(files).forEach((f) => (totalSize += f.size));
+          compressFileSize.textContent = (totalSize / 1024).toFixed(2) + " KB";
+          compressFileInfo.classList.add("show");
+          Array.from(files).forEach((file) => {
+            const img = document.createElement("img");
+            img.src = URL.createObjectURL(file);
+            img.width = 100;
+            compressPreview.appendChild(img);
+          });
+        }
+      });
+
+      compressBtn.addEventListener("click", async () => {
+        const files = compressInput.files;
+        if (!files.length) {
+          status.textContent = "Please select files";
+          status.className = "status show error";
+          return;
+        }
+        const quality = compressSlider.value;
+        compressBtn.disabled = true;
+        compressProgressContainer.classList.add("show");
+        compressProgressBar.style.width = "0%";
+        status.textContent = "Uploading...";
+        status.className = "status show info";
+        try {
+          const formData = new FormData();
+          Array.from(files).forEach((f) => formData.append("images", f));
+          formData.append("quality", quality);
+          const res = await fetch(
+            "https://images-converter-backend.onrender.com/compress/bulk",
+            {
+              method: "POST",
+              body: formData,
+            },
+          );
+          if (!res.ok) throw new Error("Compression failed");
+          const blob = await res.blob();
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "compressed_images";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          compressProgressBar.style.width = "100%";
+          status.textContent = "✓ Compression complete!";
+          status.className = "status show success";
+        } catch (e) {
+          status.textContent = e.message;
+          status.className = "status show error";
+        } finally {
+          compressBtn.disabled = false;
+          setTimeout(() => {
+            compressProgressContainer.classList.remove("show");
+            compressProgressBar.style.width = "0%";
+          }, 2000);
+        }
+      });
+    </script>
+  </body>
+</html>
